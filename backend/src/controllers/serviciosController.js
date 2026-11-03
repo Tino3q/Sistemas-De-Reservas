@@ -2,33 +2,45 @@ const prisma = require('../db');
 
 const obtenerServicios = async (req, res) => {
   try {
-    const servicios = await prisma.servicio.findMany();
+    const where = req.user?.rol === 'admin' ? {} : { activo: true };
+    const servicios = await prisma.servicio.findMany({ where, orderBy: { nombre: 'asc' } });
     res.json(servicios);
   } catch (error) {
-    res.status(500).json({ message: 'Error al obtener servicios' });
+    console.error('ERROR AL OBTENER SERVICIOS:', error);
+    res.status(500).json({ error: 'Error al obtener servicios' });
   }
 };
 
 const obtenerServicioPorId = async (req, res) => {
   try {
-    const { id } = req.params;
-    const servicio = await prisma.servicio.findUnique({ where: { id: Number(id) } });
-    if (!servicio) return res.status(404).json({ message: 'Servicio no encontrado' });
+    const servicio = await prisma.servicio.findUnique({ where: { id: Number(req.params.id) } });
+    if (!servicio || (!servicio.activo && req.user?.rol !== 'admin')) {
+      return res.status(404).json({ error: 'Servicio no encontrado' });
+    }
     res.json(servicio);
   } catch (error) {
-    res.status(500).json({ message: 'Error al obtener el servicio' });
+    console.error('ERROR AL OBTENER SERVICIO:', error);
+    res.status(500).json({ error: 'Error al obtener el servicio' });
   }
 };
 
 const crearServicio = async (req, res) => {
   try {
-    const { nombre, descripcion, duracion, precio } = req.body;
+    const { nombre, descripcion, duracion, precio, activo } = req.body;
+    
     const servicio = await prisma.servicio.create({
-      data: { nombre, descripcion, duracion: Number(duracion), precio: parseFloat(precio) },
+      data: {
+        nombre,
+        descripcion: descripcion || '',
+        duracion: Number(duracion) || 30,
+        precio: parseFloat(precio),
+        activo: activo === undefined ? true : Boolean(activo),
+      },
     });
     res.status(201).json(servicio);
   } catch (error) {
-    res.status(400).json({ message: 'Error al crear servicio' });
+    console.error('ERROR AL CREAR SERVICIO:', error);
+    res.status(400).json({ error: 'Error al crear servicio' });
   }
 };
 
